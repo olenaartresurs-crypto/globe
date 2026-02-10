@@ -1,92 +1,103 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="uk">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Interactive Globe</title>
-
-<style>
-  html, body {
-    margin: 0;
-    padding: 0;
-    background: #000;
-    width: 100%;
-    height: 100%;
-    overflow: hidden;
-  }
-  #globe {
-    width: 100vw;
-    height: 100vh;
-    cursor: grab;
-  }
-  #globe:active {
-    cursor: grabbing;
-  }
-</style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Globe</title>
+  <style>
+    html, body { margin:0; height:100%; background:#000; overflow:hidden; }
+    #globe { width:100vw; height:100vh; cursor:grab; }
+    #globe:active { cursor:grabbing; }
+    #err {
+      position: fixed; left: 12px; top: 12px; right: 12px;
+      color: #fff; font: 14px/1.4 Arial, sans-serif;
+      background: rgba(255,0,0,.18); border: 1px solid rgba(255,0,0,.35);
+      padding: 10px 12px; border-radius: 10px; display: none;
+      white-space: pre-wrap;
+    }
+  </style>
 </head>
-
 <body>
-<div id="globe"></div>
+  <div id="globe"></div>
+  <div id="err"></div>
 
-<!-- LIBS -->
-<script src="https://unpkg.com/three@0.152.2/build/three.min.js"></script>
-<script src="https://unpkg.com/topojson-client@3"></script>
-<script src="https://unpkg.com/three-globe@2"></script>
+  <!-- IMPORTANT: беремо UMD/min версії -->
+  <script src="https://unpkg.com/three@0.152.2/build/three.min.js"></script>
+  <script src="https://unpkg.com/topojson-client@3/dist/topojson-client.min.js"></script>
+  <script src="https://unpkg.com/three-globe@2.31.3/dist/three-globe.min.js"></script>
 
-<script>
-const globeEl = document.getElementById("globe");
+  <script>
+    const errBox = document.getElementById('err');
+    function showErr(e){
+      errBox.style.display = 'block';
+      errBox.textContent = String(e && (e.stack || e.message) || e);
+      console.error(e);
+    }
+    window.addEventListener('error', (e) => showErr(e.error || e.message));
 
-const world = Globe()
-  (globeEl)
-  .globeImageUrl("./earth_day_8k.jpg")
-  .backgroundColor("#000")
-  .atmosphereColor("#6ecfff")
-  .atmosphereAltitude(0.25)
-  .showAtmosphere(true)
-  .polygonsTransitionDuration(200);
+    try {
+      const globeEl = document.getElementById('globe');
+      if (!globeEl) throw new Error('#globe not found');
 
-const renderer = world.renderer();
-renderer.setPixelRatio(window.devicePixelRatio);
-renderer.setSize(window.innerWidth, window.innerHeight);
+      if (typeof Globe !== 'function') throw new Error('Globe() is not loaded (CDN problem)');
+      if (typeof topojson === 'undefined') throw new Error('topojson is not loaded (CDN problem)');
 
-// CAMERA
-world.camera().position.z = 320;
+      const world = Globe()(globeEl)
+        .backgroundColor('#000')
+        .globeImageUrl('./earth_day_8k.jpg')
+        .showAtmosphere(true)
+        .atmosphereColor('#6ecfff')
+        .atmosphereAltitude(0.25);
 
-// LIGHT
-const light = new THREE.DirectionalLight(0xffffff, 1);
-light.position.set(5, 3, 5);
-world.scene().add(light);
+      const renderer = world.renderer();
+      renderer.setPixelRatio(window.devicePixelRatio);
 
-// LOAD COUNTRIES
-fetch("./countries-110m.json")
-  .then(res => res.json())
-  .then(data => {
-    const countries = topojson.feature(data, data.objects.countries).features;
+      // світло
+      const light = new THREE.DirectionalLight(0xffffff, 1);
+      light.position.set(5, 3, 5);
+      world.scene().add(light);
 
-    world
-      .polygonsData(countries)
-      .polygonCapColor(() => "rgba(255,255,255,0.15)")
-      .polygonSideColor(() => "rgba(0,150,255,0.15)")
-      .polygonStrokeColor(() => "#6ecfff")
-      .polygonAltitude(0.01)
+      // камера
+      world.camera().position.z = 320;
 
-      .onPolygonHover(hoverD => {
-        world
-          .polygonAltitude(d => d === hoverD ? 0.08 : 0.01)
-          .polygonCapColor(d => d === hoverD
-            ? "rgba(0,180,255,0.8)"
-            : "rgba(255,255,255,0.15)"
-          );
+      // країни
+      fetch('./countries-110m.json')
+        .then(r => {
+          if (!r.ok) throw new Error('Не завантажився countries-110m.json (404). Перевір назву файлу/шлях.');
+          return r.json();
+        })
+        .then(data => {
+          if (!data.objects || !data.objects.countries) {
+            throw new Error('countries-110m.json не має data.objects.countries (не той файл).');
+          }
+          const countries = topojson.feature(data, data.objects.countries).features;
 
-        globeEl.style.cursor = hoverD ? "pointer" : "grab";
+          world
+            .polygonsData(countries)
+            .polygonCapColor(() => 'rgba(255,255,255,0.15)')
+            .polygonSideColor(() => 'rgba(0,150,255,0.15)')
+            .polygonStrokeColor(() => '#6ecfff')
+            .polygonAltitude(0.01)
+            .onPolygonHover(hoverD => {
+              world
+                .polygonAltitude(d => d === hoverD ? 0.08 : 0.01)
+                .polygonCapColor(d => d === hoverD
+                  ? 'rgba(0,180,255,0.8)'
+                  : 'rgba(255,255,255,0.15)'
+                );
+              globeEl.style.cursor = hoverD ? 'pointer' : 'grab';
+            });
+        })
+        .catch(showErr);
+
+      window.addEventListener('resize', () => {
+        world.width(window.innerWidth);
+        world.height(window.innerHeight);
       });
-  });
 
-// RESIZE
-window.addEventListener("resize", () => {
-  world.width(window.innerWidth);
-  world.height(window.innerHeight);
-});
-</script>
+    } catch (e) {
+      showErr(e);
+    }
+  </script>
 </body>
 </html>
