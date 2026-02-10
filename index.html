@@ -6,127 +6,196 @@
   <title>Globe</title>
 
   <style>
-    html, body { height: 100%; margin: 0; background: transparent; }
+    html, body { height: 100%; margin: 0; background: #0000; }
     body { overflow: hidden; }
 
-    #globeWrap {
-      width: 100%;
-      height: 100%;
-      position: relative;
-      border-radius: 24px;
-      overflow: hidden;
-      background: transparent;
+    #wrap{
+      width:100%;
+      height:100%;
+      position:relative;
+      border-radius:24px;
+      overflow:hidden;
+      background: radial-gradient(circle at 50% 45%, rgba(150,200,255,.18), rgba(0,0,0,0) 55%);
     }
 
-    #globe {
-      width: 100%;
-      height: 100%;
-    }
+    #globe{ width:100%; height:100%; }
 
-    /* Tooltip */
-    #tip {
-      position: absolute;
-      padding: 7px 10px;
-      border-radius: 10px;
-      background: rgba(0,0,0,.68);
-      color: #fff;
-      font: 12px/1.2 system-ui, -apple-system, Segoe UI, Roboto, Arial;
-      pointer-events: none;
+    #tip{
+      position:absolute;
+      display:none;
+      pointer-events:none;
+      padding:8px 10px;
+      border-radius:10px;
+      background:rgba(0,0,0,.70);
+      color:#fff;
+      font: 12px/1.2 system-ui,-apple-system,Segoe UI,Roboto,Arial;
       transform: translate(12px, 12px);
-      display: none;
-      white-space: nowrap;
-      max-width: 70%;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      z-index: 10;
+      z-index: 20;
+      white-space:nowrap;
+      max-width:70%;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      box-shadow: 0 10px 30px rgba(0,0,0,.25);
+      backdrop-filter: blur(10px);
     }
 
-    /* Small hint panel (optional, can delete if you don’t need) */
-    #panel {
-      position: absolute;
-      left: 16px;
-      bottom: 16px;
-      padding: 12px 14px;
-      border-radius: 14px;
-      background: rgba(0,0,0,.55);
-      backdrop-filter: blur(8px);
-      color: #fff;
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
-      display: none;
-      gap: 10px;
-      align-items: center;
+    #debug{
+      position:absolute;
+      left:14px;
+      top:14px;
+      z-index: 30;
+      padding:8px 10px;
+      border-radius:10px;
+      background: rgba(0,0,0,.45);
+      color:#fff;
+      font: 12px/1.3 system-ui,-apple-system,Segoe UI,Roboto,Arial;
       max-width: 92%;
-      z-index: 9;
+      backdrop-filter: blur(10px);
     }
 
-    #countryName {
-      font-weight: 800;
+    #panel{
+      position:absolute;
+      left:16px;
+      bottom:16px;
+      z-index: 25;
+      display:none;
+      gap:10px;
+      align-items:center;
+      padding:12px 14px;
+      border-radius:14px;
+      background: rgba(0,0,0,.55);
+      color:#fff;
+      font: 12px/1.2 system-ui,-apple-system,Segoe UI,Roboto,Arial;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 12px 40px rgba(0,0,0,.25);
+      max-width: 92%;
+    }
+    #panel .name{
+      font-weight:800;
       font-size: 14px;
-      line-height: 1.2;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
       max-width: 240px;
     }
-
-    #goBtn {
-      margin-left: 10px;
-      text-decoration: none;
-      color: #000;
-      background: #fff;
-      padding: 8px 10px;
-      border-radius: 10px;
-      font-weight: 800;
-      font-size: 12px;
+    #panel a{
+      text-decoration:none;
+      font-weight:900;
+      font-size:12px;
+      color:#000;
+      background:#fff;
+      padding:8px 10px;
+      border-radius:10px;
       flex: 0 0 auto;
     }
   </style>
 </head>
 
 <body>
-  <div id="globeWrap">
+  <div id="wrap">
     <div id="globe"></div>
-
     <div id="tip"></div>
+    <div id="debug">Loading…</div>
 
     <div id="panel">
-      <div style="min-width:0;">
-        <div id="countryName">Country</div>
-        <div style="font-size:12px;opacity:.85;">Click to open Notion gallery</div>
+      <div style="min-width:0">
+        <div class="name" id="panelName">Country</div>
+        <div style="opacity:.85">Open Notion gallery</div>
       </div>
-      <a id="goBtn" href="#" target="_parent" rel="noopener">Open gallery</a>
+      <a id="panelBtn" href="#" target="_parent" rel="noopener">Open</a>
     </div>
   </div>
 
-  <!-- Libraries (UMD) -->
+  <!-- libs (UMD) -->
   <script src="https://unpkg.com/three/build/three.min.js"></script>
   <script src="https://unpkg.com/topojson-client@3/dist/topojson-client.min.js"></script>
   <script src="https://unpkg.com/globe.gl@2.33.0/dist/globe.gl.min.js"></script>
 
   <script>
-    // =========================
-    // 1) Notion links by country name (English)
-    // Add more lines here when you publish more pages.
-    // =========================
+    // ====== 1) Notion links (English country names) ======
     const NOTION_BY_COUNTRY = {
       "Belgium": "https://military-painter-794.notion.site/Belgium-30384bc36d3380f3b2dec9f10b74c5d3"
+      // "Poland": "https://...."
     };
 
+    // ====== DOM ======
     const el = document.getElementById("globe");
     const tip = document.getElementById("tip");
+    const debug = document.getElementById("debug");
     const panel = document.getElementById("panel");
-    const countryNameEl = document.getElementById("countryName");
-    const goBtn = document.getElementById("goBtn");
+    const panelName = document.getElementById("panelName");
+    const panelBtn = document.getElementById("panelBtn");
 
-    function slugify(s){
-      return (s || "")
-        .toLowerCase()
-        .replace(/&/g, "and")
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-+|-+$/g, "");
+    // Tooltip follow mouse
+    el.addEventListener("mousemove", (e) => {
+      const r = el.getBoundingClientRect();
+      tip.style.left = (e.clientX - r.left) + "px";
+      tip.style.top  = (e.clientY - r.top) + "px";
+    });
+
+    function setDebug(s){ debug.textContent = s; }
+
+    // ====== 2) Create Globe (REALISTIC + BRIGHTER) ======
+    const globe = Globe()(el)
+      .backgroundColor("rgba(0,0,0,0)")
+      // Реалістична земля з океанами
+      .globeImageUrl("https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg")
+      .bumpImageUrl("https://unpkg.com/three-globe/example/img/earth-topology.png")
+      .showAtmosphere(true)
+      .atmosphereColor("rgba(120,190,255,0.35)")
+      .atmosphereAltitude(0.22);
+
+    // Make it sharper / nicer
+    const renderer = globe.renderer();
+    renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+
+    // Improve lighting (бо в тебе “темний”)
+    const scene = globe.scene();
+    scene.add(new THREE.AmbientLight(0xffffff, 1.10));
+    const key = new THREE.DirectionalLight(0xffffff, 1.25);
+    key.position.set(1.5, 1.0, 1.5);
+    scene.add(key);
+    const fill = new THREE.DirectionalLight(0xffffff, 0.65);
+    fill.position.set(-1.5, -0.6, -1.2);
+    scene.add(fill);
+
+    // Ocean shine / detail
+    const mat = globe.globeMaterial();
+    mat.bumpScale = 7;
+    mat.shininess = 22;
+    mat.emissive = new THREE.Color(0x223344);
+    mat.emissiveIntensity = 0.35;
+
+    // Controls
+    const controls = globe.controls();
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.08;
+    controls.autoRotate = true;
+    controls.autoRotateSpeed = 0.35;
+    el.style.cursor = "grab";
+
+    // Start view (Europe-ish)
+    globe.pointOfView({ lat: 25, lng: 10, altitude: 2.05 }, 0);
+
+    // ====== 3) Load countries with names ======
+    async function loadNameMap(){
+      // TSV: id \t name
+      const tsvUrl = "https://unpkg.com/world-atlas@2/countries-110m.tsv";
+      const tsv = await fetch(tsvUrl, { cache: "no-store" }).then(r => r.text());
+      const map = new Map();
+      const lines = tsv.split("\n");
+      for (let i = 1; i < lines.length; i++){
+        const line = lines[i].trim();
+        if (!line) continue;
+        const parts = line.split("\t");
+        const id = parts[0];
+        const name = parts.slice(1).join("\t");
+        if (id && name) map.set(String(id), name);
+      }
+      return map;
     }
 
-    // centroid from bbox (fast, no d3)
+    // centroid from bbox (fast)
     function centroidFromBBox(featureObj){
       let minLat =  90, maxLat = -90;
       let minLng = 180, maxLng = -180;
@@ -145,161 +214,118 @@
       }
       walk(featureObj.geometry.coordinates);
 
-      // handle dateline weird bbox (very rough fix)
+      // dateline rough fix
       if (maxLng - minLng > 300) { minLng = -180; maxLng = 180; }
 
       return { lat: (minLat + maxLat) / 2, lng: (minLng + maxLng) / 2 };
     }
 
-    // =========================
-    // 2) Create realistic Earth globe (water like your reference)
-    // =========================
-    const globe = Globe()(el)
-      .backgroundColor("rgba(0,0,0,0)")
-      // Realistic Earth texture (oceans look like your photo)
-      .globeImageUrl("https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg")
-      // Relief
-      .bumpImageUrl("https://unpkg.com/three-globe/example/img/earth-topology.png")
-      // Atmosphere
-      .showAtmosphere(true)
-      .atmosphereColor("rgba(135,206,235,0.25)")
-      .atmosphereAltitude(0.22)
-      // Clouds (adds realism)
-      .cloudsImageUrl("https://unpkg.com/three-globe/example/img/earth-clouds.png")
-      .cloudsAltitude(0.012)
-      .cloudsOpacity(0.55);
-
-    // Make oceans a bit glossy (water feel)
-    const mat = globe.globeMaterial();
-    mat.bumpScale = 6;
-    mat.shininess = 18;
-
-    // Start camera
-    globe.pointOfView({ lat: 30, lng: 10, altitude: 2.0 }, 0);
-
-    // Controls
-    const controls = globe.controls();
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.08;
-    controls.autoRotate = true;
-    controls.autoRotateSpeed = 0.35;
-
-    // Cursor base state
-    el.style.cursor = "grab";
-
-    // Tooltip follow mouse
-    el.addEventListener("mousemove", (e) => {
-      const rect = el.getBoundingClientRect();
-      tip.style.left = (e.clientX - rect.left) + "px";
-      tip.style.top  = (e.clientY - rect.top)  + "px";
-    });
-
-    // =========================
-    // 3) Load country polygons + names (world-atlas)
-    // =========================
-    async function loadCountryNamesMap(){
-      // TSV: id \t name
-      const tsv = await fetch("https://unpkg.com/world-atlas@2/countries-110m.tsv").then(r => r.text());
-      const map = new Map();
-      const lines = tsv.split("\n");
-      for (let i = 1; i < lines.length; i++){
-        const line = lines[i].trim();
-        if (!line) continue;
-        const parts = line.split("\t");
-        const id = parts[0];
-        const name = parts.slice(1).join("\t");
-        if (id && name) map.set(String(id), name);
-      }
-      return map;
-    }
-
     let hovered = null;
+    let selected = null;
 
-    Promise.all([
-      fetch("https://unpkg.com/world-atlas@2/countries-110m.json").then(r => r.json()),
-      loadCountryNamesMap()
-    ]).then(([world, nameById]) => {
-      const countries = topojson.feature(world, world.objects.countries).features;
+    (async () => {
+      try{
+        setDebug("Loading countries…");
 
-      // Attach English names
-      countries.forEach(c => {
-        c.properties = c.properties || {};
-        c.properties.name = c.properties.name || nameById.get(String(c.id)) || "Country";
-      });
+        const [world, nameById] = await Promise.all([
+          fetch("https://unpkg.com/world-atlas@2/countries-110m.json", { cache: "no-store" }).then(r => r.json()),
+          loadNameMap()
+        ]);
 
-      // =========================
-      // 4) Style: extruded countries (hover grows) + borders
-      // =========================
-      globe
-        .polygonsData(countries)
+        const countries = topojson.feature(world, world.objects.countries).features;
 
-        // Hover -> "bigger" (higher)
-        .polygonAltitude(d => (d === hovered ? 0.14 : 0.08))
+        // Attach English names
+        for (const c of countries){
+          c.properties = c.properties || {};
+          c.properties.name = nameById.get(String(c.id)) || c.properties.name || String(c.id);
+        }
 
-        // Premium glassy overlay: keep Earth texture visible
-        .polygonCapColor(d => (d === hovered ? "rgba(255,255,255,0.35)" : "rgba(255,255,255,0.18)"))
+        // ====== 4) STYLE: REALISTIC EARTH + 3D COUNTRIES ======
+        globe
+          .polygonsData(countries)
 
-        // Sides give 3D thickness
-        .polygonSideColor(d => (d === hovered ? "rgba(0,0,0,0.38)" : "rgba(0,0,0,0.22)"))
+          // Обʼєм: базова висота + hover + click
+          .polygonAltitude(d => (d === selected ? 0.20 : d === hovered ? 0.14 : 0.08))
 
-        // Borders separate countries
-        .polygonStrokeColor(() => "rgba(0,0,0,0.75)")
-        .polygonsTransitionDuration(220);
+          // Верх країни — “скло”, щоб земля читалась
+          .polygonCapColor(d => (d === selected
+            ? "rgba(255,255,255,0.42)"
+            : d === hovered
+              ? "rgba(255,255,255,0.34)"
+              : "rgba(255,255,255,0.18)"
+          ))
 
-      // Hover: tooltip + pointer
-      globe.onPolygonHover(d => {
-        hovered = d || null;
-        globe.polygonsData(globe.polygonsData()); // re-render
+          // Боковини — темніші, дають “плитку”
+          .polygonSideColor(d => (d === selected
+            ? "rgba(0,0,0,0.38)"
+            : d === hovered
+              ? "rgba(0,0,0,0.34)"
+              : "rgba(0,0,0,0.22)"
+          ))
 
-        if (d) {
+          // Кордони — щоб реально було “розділено”
+          .polygonStrokeColor(() => "rgba(255,255,255,0.55)")
+          .polygonsTransitionDuration(180);
+
+        // Hover = піднялась + tooltip + cursor pointer
+        globe.onPolygonHover(d => {
+          hovered = d || null;
+          globe.polygonsData(globe.polygonsData());
+
+          if (d) {
+            const name = d.properties.name || "Country";
+            tip.textContent = name;
+            tip.style.display = "block";
+            el.style.cursor = "pointer";
+          } else {
+            tip.style.display = "none";
+            el.style.cursor = "grab";
+          }
+        });
+
+        // Click = zoom + open Notion (if exists)
+        globe.onPolygonClick(d => {
+          if (!d) return;
+
+          selected = d;
+          globe.polygonsData(globe.polygonsData());
+
           const name = d.properties.name || "Country";
-          tip.textContent = name;
-          tip.style.display = "block";
-          el.style.cursor = "pointer";
-        } else {
-          tip.style.display = "none";
-          el.style.cursor = "grab";
-        }
-      });
+          const url = NOTION_BY_COUNTRY[name];
 
-      // Click: zoom a bit + open Notion if exists (else just zoom)
-      globe.onPolygonClick(d => {
-        if (!d) return;
+          // zoom to country
+          const { lat, lng } = centroidFromBBox(d);
+          globe.pointOfView({ lat, lng, altitude: 1.18 }, 650);
 
-        const name = d.properties.name || "Country";
-        const url = NOTION_BY_COUNTRY[name];
+          // panel
+          panelName.textContent = name;
+          panel.style.display = "flex";
+          panelBtn.href = url || "#";
 
-        // small zoom for nice feel
-        const { lat, lng } = centroidFromBBox(d);
-        globe.pointOfView({ lat, lng, altitude: 1.15 }, 650);
+          // якщо є url — одразу відкриваємо (щоб “клікнув і полетів”)
+          if (url) window.parent.location.href = url;
+        });
 
-        // Show panel (optional)
-        countryNameEl.textContent = name;
-        panel.style.display = "flex";
+        // Hide panel when click empty area (optional)
+        el.addEventListener("click", (e) => {
+          if (panel.contains(e.target)) return;
+          setTimeout(() => { if (!hovered) panel.style.display = "none"; }, 0);
+        });
 
-        if (url) {
-          goBtn.href = url;
-          // If you want immediate redirect on click (no panel), uncomment next line:
-          window.parent.location.href = url;
-        } else {
-          goBtn.href = "#";
-        }
-      });
+        setDebug(`OK ✅ Countries loaded: ${countries.length}. Hover a country.`);
+        // optionally hide debug after 4s:
+        setTimeout(() => { debug.style.display = "none"; }, 4000);
 
-      // Auto-hide panel if click empty space (optional)
-      el.addEventListener("click", (e) => {
-        if (panel.contains(e.target)) return;
-        // don’t instantly hide on polygon click
-        setTimeout(() => {
-          // hide only if not hovering any country
-          if (!hovered) panel.style.display = "none";
-        }, 0);
-      });
+      } catch(err){
+        console.error(err);
+        setDebug("ERROR ❌ Countries failed to load. Open DevTools Console (F12) and screenshot error.");
+      }
+    })();
 
-    }).catch(err => {
-      console.error("Globe init error:", err);
+    // Resize handling
+    window.addEventListener("resize", () => {
+      renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
     });
-
   </script>
 </body>
 </html>
