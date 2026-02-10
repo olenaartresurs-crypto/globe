@@ -46,6 +46,22 @@
   <script src="https://unpkg.com/globe.gl@2.33.0/dist/globe.gl.min.js"></script>
 
   <script>
+
+fetch("./countries-110m.json")
+  .then(r => r.json())
+  .then(world => {
+    console.log("COUNTRIES LOADED OK", world);
+    window.COUNTRIES_DATA = world;
+  })
+  .catch(err => {
+    console.error("FAILED TO LOAD COUNTRIES", err);
+  });
+
+  // === твої Notion посилання ===
+  const NOTION_BY_COUNTRY = {
+    "Belgium": "https://military-painter-794.notion.site/Belgium-30384bc36d3380f3b2dec9f10b74c5d3"
+  };
+
     // === твої Notion посилання ===
     const NOTION_BY_COUNTRY = {
       "Belgium": "https://military-painter-794.notion.site/Belgium-30384bc36d3380f3b2dec9f10b74c5d3"
