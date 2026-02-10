@@ -1,124 +1,92 @@
-<!doctype html>
-<html lang="uk">
+<!DOCTYPE html>
+<html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Globe</title>
-  <style>
-    html, body { margin:0; height:100%; overflow:hidden; background:#000; }
-    #globe { width:100vw; height:100vh; }
-    #hint {
-      position: fixed; left: 12px; bottom: 12px;
-      font: 14px/1.3 system-ui, -apple-system, Segoe UI, Roboto, Arial;
-      color: rgba(255,255,255,.75);
-      background: rgba(0,0,0,.35);
-      padding: 10px 12px; border-radius: 10px;
-      backdrop-filter: blur(6px);
-      user-select: none;
-    }
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Interactive Globe</title>
+
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: #000;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+  }
+  #globe {
+    width: 100vw;
+    height: 100vh;
+    cursor: grab;
+  }
+  #globe:active {
+    cursor: grabbing;
+  }
+</style>
 </head>
+
 <body>
-  <div id="globe"></div>
-  <div id="hint">Крути мишкою • Колесо — зум • Клік по країні — наблизити</div>
+<div id="globe"></div>
 
-  <!-- libs -->
-  <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
-  <script src="https://unpkg.com/globe.gl@2.33.1/dist/globe.gl.min.js"></script>
-  <script src="https://unpkg.com/topojson-client@3/dist/topojson-client.min.js"></script>
-  <script src="https://unpkg.com/d3-geo@3/dist/d3-geo.min.js"></script>
+<!-- LIBS -->
+<script src="https://unpkg.com/three@0.152.2/build/three.min.js"></script>
+<script src="https://unpkg.com/topojson-client@3"></script>
+<script src="https://unpkg.com/three-globe@2"></script>
 
-  <script>
-    const el = document.getElementById("globe");
+<script>
+const globeEl = document.getElementById("globe");
 
-    // 8K-ish/hi-res Earth texture (важке, але якісне при зумі)
-    // Якщо буде дуже важко вантажитись — заміни на 2K нижче (в коментах).
-    const EARTH_TEX =
-      "https://eoimages.gsfc.nasa.gov/images/imagerecords/73000/73909/world.topo.bathy.200401.jpg";
-    // 2K легший варіант:
-    // const EARTH_TEX = "https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg";
+const world = Globe()
+  (globeEl)
+  .globeImageUrl("./earth_day_8k.jpg")
+  .backgroundColor("#000")
+  .atmosphereColor("#6ecfff")
+  .atmosphereAltitude(0.25)
+  .showAtmosphere(true)
+  .polygonsTransitionDuration(200);
 
-    const globe = Globe()(el)
-      .backgroundColor("#000000")
-      .globeImageUrl(EARTH_TEX)
-      .showAtmosphere(true)
-      .atmosphereColor("rgba(90,140,255,0.35)")
-      .atmosphereAltitude(0.18);
+const renderer = world.renderer();
+renderer.setPixelRatio(window.devicePixelRatio);
+renderer.setSize(window.innerWidth, window.innerHeight);
 
-    // РІЗКІСТЬ / ЯКІСТЬ РЕНДЕРУ (особливо при зумі)
-    const maxPR = 2; // не став більше 2, бо буде лагати
-    globe.renderer().setPixelRatio(Math.min(window.devicePixelRatio || 1, maxPR));
-    globe.renderer().outputColorSpace = THREE.SRGBColorSpace;
+// CAMERA
+world.camera().position.z = 320;
 
-    // Камера/контроли
-    globe.controls().enableDamping = true;
-    globe.controls().dampingFactor = 0.08;
-    globe.controls().rotateSpeed = 0.35;
-    globe.controls().zoomSpeed = 0.8;
-    globe.controls().minDistance = 160; // ближче — сильніший зум
-    globe.controls().maxDistance = 700;
+// LIGHT
+const light = new THREE.DirectionalLight(0xffffff, 1);
+light.position.set(5, 3, 5);
+world.scene().add(light);
 
-    // Підсвітка/hover
-    let hoverD = null;
-    function capColor(d) {
-      if (d === hoverD) return "rgba(120,180,255,0.55)";
-      return "rgba(255,255,255,0.14)";
-    }
+// LOAD COUNTRIES
+fetch("./countries-110m.json")
+  .then(res => res.json())
+  .then(data => {
+    const countries = topojson.feature(data, data.objects.countries).features;
 
-    // Завантажуємо країни ЛОКАЛЬНО з репо (цей файл має лежати поруч з index.html)
-    fetch("./countries-110m.json")
-      .then(r => {
-        if (!r.ok) throw new Error("Не можу завантажити ./countries-110m.json");
-        return r.json();
-      })
-      .then(world => {
-        const countries = topojson.feature(world, world.objects.countries).features;
+    world
+      .polygonsData(countries)
+      .polygonCapColor(() => "rgba(255,255,255,0.15)")
+      .polygonSideColor(() => "rgba(0,150,255,0.15)")
+      .polygonStrokeColor(() => "#6ecfff")
+      .polygonAltitude(0.01)
 
-        globe
-          .polygonsData(countries)
-          .polygonAltitude(d => (d === hoverD ? 0.06 : 0.01))
-          .polygonCapColor(capColor)
-          .polygonSideColor(() => "rgba(255,255,255,0.06)")
-          .polygonStrokeColor(() => "rgba(120,170,255,0.55)")
-          .polygonLabel(() => "") // без підписів-попапів
-          .onPolygonHover(d => {
-            hoverD = d || null;
-            document.body.style.cursor = d ? "pointer" : "grab";
-            globe
-              .polygonCapColor(capColor)
-              .polygonAltitude(x => (x === hoverD ? 0.06 : 0.01));
-          })
-          .onPolygonClick(d => zoomToCountry(d));
-      })
-      .catch(err => {
-        console.error(err);
-        document.getElementById("hint").textContent =
-          "Помилка: countries-110m.json не підвантажився. Перевір, що файл лежить поруч з index.html.";
+      .onPolygonHover(hoverD => {
+        world
+          .polygonAltitude(d => d === hoverD ? 0.08 : 0.01)
+          .polygonCapColor(d => d === hoverD
+            ? "rgba(0,180,255,0.8)"
+            : "rgba(255,255,255,0.15)"
+          );
+
+        globeEl.style.cursor = hoverD ? "pointer" : "grab";
       });
+  });
 
-    // ЗУМ В КРАЇНУ (центроїд + плавний під’їзд)
-    function zoomToCountry(feature) {
-      if (!feature) return;
-
-      // центроїд полігона (lon, lat)
-      const c = d3.geoCentroid(feature);
-      let lon = c[0], lat = c[1];
-
-      // якщо центроїд злетів у космос (рідко) — не падаємо
-      if (!isFinite(lon) || !isFinite(lat)) { lon = 0; lat = 0; }
-
-      // "сильний" зум: менша altitude = ближче
-      const currentAlt = globe.pointOfView().altitude || 2.0;
-      const targetAlt = Math.max(0.35, Math.min(1.2, currentAlt * 0.6));
-
-      globe.pointOfView({ lat, lng: lon, altitude: targetAlt }, 900);
-    }
-
-    // Респонс
-    window.addEventListener("resize", () => {
-      globe.width([window.innerWidth]);
-      globe.height([window.innerHeight]);
-    });
-  </script>
+// RESIZE
+window.addEventListener("resize", () => {
+  world.width(window.innerWidth);
+  world.height(window.innerHeight);
+});
+</script>
 </body>
 </html>
