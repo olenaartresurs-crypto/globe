@@ -1,0 +1,85 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    html, body { height: 100%; margin: 0; background: transparent; }
+    #globeWrap { width: 100%; height: 100%; position: relative; overflow: hidden; border-radius: 24px; }
+    #globe { width: 100%; height: 100%; }
+    #panel{
+      position:absolute; left:16px; bottom:16px;
+      padding:12px 14px; border-radius:14px;
+      background:rgba(0,0,0,.55); backdrop-filter: blur(8px);
+      color:#fff; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
+      display:none; gap:10px; align-items:center;
+    }
+    #goBtn{
+      margin-left:10px; text-decoration:none; color:#000;
+      background:#fff; padding:8px 10px; border-radius:10px;
+      font-weight:700; font-size:12px;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="globeWrap">
+    <div id="globe"></div>
+
+    <div id="panel">
+      <div>
+        <div id="countryName" style="font-weight:700;font-size:14px;line-height:1.2;"></div>
+        <div style="font-size:12px;opacity:.85;">Click “View artworks” to open gallery</div>
+      </div>
+      <a id="goBtn" href="#" target="_parent">View artworks</a>
+    </div>
+  </div>
+
+  <!-- UMD scripts (без type=module) -->
+  <script src="https://unpkg.com/three/build/three.min.js"></script>
+  <script src="https://unpkg.com/topojson-client@3/dist/topojson-client.min.js"></script>
+  <script src="https://unpkg.com/globe.gl@2.33.0/dist/globe.gl.min.js"></script>
+
+  <script>
+    const el = document.getElementById("globe");
+    const panel = document.getElementById("panel");
+    const countryNameEl = document.getElementById("countryName");
+    const goBtn = document.getElementById("goBtn");
+
+    function slugify(s){
+      return (s||"").toLowerCase().replace(/&/g,"and").replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"");
+    }
+
+    // Globe() з UMD
+    const globe = Globe()(el)
+      .backgroundColor("rgba(0,0,0,0)")
+      .globeImageUrl("https://unpkg.com/three-globe/example/img/earth-dark.jpg")
+      .bumpImageUrl("https://unpkg.com/three-globe/example/img/earth-topology.png")
+      .showAtmosphere(true)
+      .atmosphereAltitude(0.18);
+
+    globe.pointOfView({ lat: 25, lng: 20, altitude: 2.0 }, 0);
+
+    fetch("https://unpkg.com/world-atlas@2/countries-110m.json")
+      .then(r => r.json())
+      .then(world => {
+        const countries = topojson.feature(world, world.objects.countries).features;
+
+        globe
+          .polygonsData(countries)
+          .polygonAltitude(0.06)
+          .polygonCapColor("rgba(255,255,255,0.25)")
+          .polygonSideColor("rgba(255,255,255,0.06)")
+          .polygonStrokeColor("rgba(255,255,255,0.2)")
+          .polygonsTransitionDuration(120);
+
+        globe.onPolygonClick(d => {
+          const name = (d && d.properties && d.properties.name) ? d.properties.name : "Country";
+          countryNameEl.textContent = name;
+          goBtn.href = "/country/" + slugify(name);   // <-- змінюється під твій сайт
+          panel.style.display = "flex";
+        });
+      });
+  </script>
+</body>
+</html>
